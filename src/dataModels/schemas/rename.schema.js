@@ -1,20 +1,21 @@
 const renameSchema = {
   type: "object",
   properties: {
-    type: {type: "string", default: "rename"},
+    type: { const: "rename" },
     rename: {
       type: "array",
       items: {
         type: "object", 
         properties: {
-          column: {type: "string", default: ""},
-          name: {type: "string", default: ""},
+          column: { type: "string" },
+          name: { type: "string" },
         },
-        required:["column", "name"],
+        required: ["column", "name"],
         additionalProperties: false,
       },
     },
   },
+  required: ['type', 'rename'],
   additionalProperties: false,
 };
 
