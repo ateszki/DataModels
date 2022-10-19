@@ -5,6 +5,8 @@
   "license": "MIT",
   "dependencies": {
     "avj": "^0.0.0",
-    "lodash": "^4.17.21"
+    "lodash": "^4.17.21",
+    "mobx": "^6.6.2",
+    "mobx-state-tree": "^5.1.6"
   }
 }
