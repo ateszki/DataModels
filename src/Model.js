@@ -1,22 +1,23 @@
 import { types } from 'mobx-state-tree';
 import { observable, makeObservable } from 'mobx';
-import RenameModel from './dataModels';
+import { Rename } from './dataModels';
 
 const { model } = types;
 
 const Model = model({})
   .volatile(() => ({
-    dataModel: new RenameModel(),
+    dataModel: new Rename(),
   }))
   .actions(self => ({
     afterCreate() {
       // makes the "data" attribute in our data model become an observed property
       makeObservable(self.dataModel, {
-        data: observable,
+        _data: observable,
       });
     },
     setFirstColumn(column) {
-      console.log('setting:', column)
+      console.log('setting:', column, typeof column)
+      if (!self.firstRename) self.dataModel.addRename();
       self.dataModel.setColumn(column, 0);
     },
   }))
