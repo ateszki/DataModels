@@ -5,9 +5,9 @@ function Component({ model }) {
   console.log('jsx model value:', model.firstColumn)
   return (
     <input
-      type="text"
+      type="number"
       value={model.firstColumn || ''}
-      onChange={e => model.setFirstColumn(e.target.value)}
+      onChange={e => model.setFirstColumn(parseInt(e.target.value))}
       placeholder="enter first column name"
     />
   );

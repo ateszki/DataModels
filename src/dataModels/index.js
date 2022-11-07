@@ -1,75 +1,53 @@
-const _ = require("lodash");
-const Ajv = require("ajv")
-const ajv = new Ajv();
-const renameSchema = require("./schemas/rename.schema");
-const validateRenameSchema = ajv.compile(renameSchema);
+const _ = require('lodash');
 
-class RenameModel {
-  constructor(data) {
-    if (!data) {
-      data = {
-        type: 'rename',
-        rename: [],
-      };
-    }
-    this.data = this.validate(data);
+const { BaseModel } = require('./Base.model');
+const { validateRenameTransform } = require('./validators');
+
+class Rename extends BaseModel {
+  static _validator = validateRenameTransform;
+  static _defaults = {
+    type: 'rename',
+    rename: [],
+  };
+
+  // Getters
+  get rename() {
+    return this._data.rename;
   }
 
-  validate(data) {
-    const cloned = _.cloneDeep(data); // because validate might modify the objecg
-    const isValid = validateRenameSchema(cloned);
-    if (!isValid) {
-      throw new Error(JSON.stringify(validateRenameSchema.errors));
-    }
-    return cloned;
+  get type() {
+    return this._data.type;
   }
 
-  addRename(newRename = {}) {
-    this.rename.push(newRename);
-  }
-
-  removeRename(rename) {
-    if (_.isString(rename)) {
-      rename = _.find(this.rename, { column: rename });
+  // Validation Methods
+  checkIsValid() {
+    if (_.isEmpty(this.rename)) {
+      throw new Error('Must define at least one rename');
     }
-    if (rename) {
-      delete this.removeRename(rename);
+
+    const hasIncompleteRenames = _.some(this.rename, ({ column, name }) => (!_.trim(column) || !_.trim(name)));
+    if (hasIncompleteRenames) {
+      throw new Error('Each rename must have valid "column" and "name"');
     }
   }
 
-  setColumn(column, index) {
-    if (column && !this.data.rename[index]) {
-      this.data.rename[index] = {};
-    }
-    this.data.rename[index].column = column;
+  // Model methods
+  addRename(data = {}) {
+    const newRename = _.defaults(data, {
+      column: '',
+      name: '',
+    });
+    
+    this._data.rename.push(newRename);
+    return _.last(this.rename);
   }
-
-  setName(name, index) {
-    if (name && !this.data.rename[index]) {
-      this.data.rename[index] = {};
-    }
-    this.data.rename[index].name = name;
-  }
-
-  setRename(rename) {
-    this.rename = rename;
-  }
-
-  setRenameColumn(column, value) {
-    // add or update rename item without needing to know the indexes or whatever. Assumes all columns are unique.
-    const colIdx = _.findIndex(this.rename, { column });
-    let renameItem;
-    if (colIdx === -1) {
-      renameItem = this.addRename();
-      renameItem.setColumn(column);
-    } else {
-      renameItem = this.rename[colIdx];
-    }
-    renameItem.setName(value);
+  
+  getRenameIndex(column) {
+    return _.findIndex(this.rename, { column });
   }
 
   removeDuplicates() {
-    _.forEachRight(this.rename, (rename, idx) => {
+    _.forEachRight(this._data.rename, (rename, idx) => {
       // remove it if there isn't a name defined
       let removeIt = !rename.name;
 
@@ -84,49 +62,59 @@ class RenameModel {
         const firstNameMatchIdx = _.findIndex(this.rename, { column: rename.column });
         removeIt = firstNameMatchIdx !== idx;
       }
-
+      
       if (removeIt) {
-        this.removeRename(rename);
+        this.removeRename(idx);
       }
     });
   }
 
   removeEmptyRenames(columnList = null) {
-    // cleanup any empty renames to keep things tidy. Destroy in reverse order to prevent index issues.
-    // removes any items without a defined value or that aren't in the selected column list (if provided)
-    _.forEachRight(this.rename, (rename) => {
-      if (!rename.name || (!_.isNil(columnList) && columnList.indexOf(rename.column) === -1)) {
-        this.removeRename(rename);
-      }
-    });
+    this._data.rename = _.filter(this._data.rename, ({ column, name }) => (
+      name
+      && (
+        _.isNil(columnList)
+       || _.includes(columnList, column)
+      )
+    ));
   }
 
-  removeRename(rename) {
-    const newRename = _.filter(this.rename, r => r !== rename)
-    this.setRename(newRename);
+  removeRename(index) {
+    this._data.rename = _.filter(this._data.rename, (_r, i) => i !== index);
   }
 
-  get rename() {
-    return this.data.rename;
+  setColumn(column, index) {
+    console.log(this._data)
+    this._data.rename[index].column = column;
   }
 
-  get isValid() { 
-    return this.validate(this.data) && _.every(this.data.rename, r => !_.isEmpty(r.name) && !_.isEmpty(r.column));
+  setName(name, index) {
+    this._data.rename[index].name = name;
   }
-};
 
-module.exports = RenameModel;
+  setRename(rename) {
+    this._data.rename = rename;
+  }
 
-const emptyModel = new RenameModel();
-console.log({data: emptyModel.data.rename, valid: emptyModel.isValid});
+  setRenameColumn(column, value) {
+    // add or update rename item without needing to know the indexes or whatever. Assumes all columns are unique.
+    let renameIndex = this.getRenameIndex(column);
 
-const modelInstance = new RenameModel({
-  type: "rename",
-  rename: [{
-    name: "",
-    column: "bar",
-  }],
-});
-console.log({data: modelInstance.data.rename, valid: modelInstance.isValid});
-//modelInstance.setName('andres', 0);
-//console.log({data: modelInstance.data.rename, valid: modelInstance.isValid});
+    if (renameIndex === -1) {
+      this.addRename();
+      renameIndex = _.size(this.rename) - 1;
+      this.setColumn(column, renameIndex);
+    }
+
+    this.setName(value, renameIndex);
+  }
+
+  validateColumnNames(columnList) {
+    // TODO: should this live here? Think about this more
+    // maybe for v1 we just keep the validation in each individual transform, but we could abstract later
+    // loop through renames and validate each column name exists in the column list
+    return columnList;
+  }
+}
+
+module.exports = { Rename };
