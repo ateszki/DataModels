@@ -1,33 +1,58 @@
-import { types } from 'mobx-state-tree';
-import { observable, makeObservable } from 'mobx';
-import RenameModel from './dataModels';
+import { getSnapshot, types } from 'mobx-state-tree';
+import _ from 'lodash';
 
-const { model } = types;
+const { array, model, compose, string, optional, union, undefined: undef } = types;
 
-const Model = model({})
+// replicates the base transform model we have in the app
+const BaseTransformModel = model('transformationPipeline', {
+  type: string,
+  associatedTransform: optional(union(string, undef), undefined), // useful if you need to tie a specific transform to another transform
+})
   .volatile(() => ({
-    dataModel: new RenameModel(),
-  }))
-  .actions(self => ({
-    afterCreate() {
-      // makes the "data" attribute in our data model become an observed property
-      makeObservable(self.dataModel, {
-        data: observable,
-      });
-    },
-    setFirstColumn(column) {
-      console.log('setting:', column)
-      self.dataModel.setColumn(column, 0);
-    },
-  }))
-  .views(self => ({
-    get firstRename() {
-      return self.dataModel.rename.length ? self.dataModel.rename[0] : null;
-    },
-    get firstColumn() {
-      console.log('getter:', self.firstRename?.column)
-      return self.firstRename?.column;
-    },
+    key: _.uniqueId(),
   }));
 
-export default Model;
+// replicates the mst model we have in the app, minus all the extra methods we shouldn't need anymore
+const RenameModel = model({
+  type: optional(string, 'rename'),
+  rename: optional(array(model('Rename', {
+    column: optional(string, ''),
+    name: optional(string, ''),
+  })), []),
+});
+
+// replicates how the rename model is exported in the app
+const UsedModel = compose(BaseTransformModel, RenameModel)
+  .preProcessSnapshot(snapshot => {
+    if (_.isNil(snapshot.rename)) {
+      return {
+        ...snapshot,
+        rename: [],
+      };
+    }
+    return snapshot;
+  })
+  .named('RenameModel');
+
+// simulates a vc for the general view adding multiple transforms
+const FakeVC = model({
+  renames: optional(array(UsedModel), []),
+})
+  .actions(self => ({
+    afterCreate() {
+      self.addRenameModel();
+    },
+    addRenameModel() {
+      self.renames.push(UsedModel.create({
+        type: 'rename',
+        rename: [{
+          column: 'blah' + _.uniqueId(), // setting with an initial value to test the snapshot mount flow
+        }],
+      }))
+    },
+    logSnapshot() {
+      console.log(getSnapshot(self.renames));
+    }
+  }));
+
+export default FakeVC;

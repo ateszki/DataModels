@@ -1,22 +1,18 @@
 const renameSchema = {
-  type: "object",
+  type: 'object',
+  required: ['rename'],
   properties: {
-    type: { const: "rename" },
     rename: {
-      type: "array",
+      type: 'array',
       items: {
-        type: "object", 
-        properties: {
-          column: { type: "string" },
-          name: { type: "string" },
+        type: 'object',
+        properties: { // not requiring either of these so you can add an empty rename potentially
+          column: { type: 'string' },
+          name: { type: 'string' },
         },
-        required: ["column", "name"],
-        additionalProperties: false,
       },
     },
   },
-  required: ['type', 'rename'],
-  additionalProperties: false,
 };
 
 module.exports = renameSchema;
