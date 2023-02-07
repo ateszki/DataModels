@@ -10,8 +10,8 @@ const { validateRename } = require('./validators');
 // });
 
 class Rename extends BaseModel {
-  _validator = validateRename;
-  _defaults = {
+  static _validator = validateRename;
+  static _defaults = {
     rename: [],
   };
 
@@ -50,53 +50,31 @@ class Rename extends BaseModel {
     return newRename._snapshot;
   }
 
-  // TODO: update the below commented methods to follow the same validation pattern as addRename
-  // TODO: add/update all the tests
+  removeEmptyRenames(columnList = null) {
+    const transform = _.cloneDeep(this._data);
+    transform.rename = _.filter(transform.rename, ({ column, name }) => (
+      name
+      && (
+        _.isNil(columnList)
+       || _.includes(columnList, column)
+      )
+    ));
+    this._validate(transform);
+  }
 
-  // removeDuplicates() {
-  //   _.forEachRight(this.rename, (rename, idx) => {
-  //     // remove it if there isn't a name defined
-  //     let removeIt = !rename.name;
+  removeRename(rename) {
+    const renameIndex = this.getIndex(rename);
+    const transform = _.cloneDeep(this._data);
+    _.pullAt(transform.rename, renameIndex);
+    this._validate(transform);
+  }
 
-  //     // remove it if there is a duplicate name
-  //     if (!removeIt) {
-  //       const firstNameMatchIdx = _.findIndex(this.rename, { name: rename.name });
-  //       removeIt = firstNameMatchIdx !== idx;
-  //     }
-
-  //     // remove it if duplicate entries for columns
-  //     if (!removeIt) {
-  //       const firstNameMatchIdx = _.findIndex(this.rename, { column: rename.column });
-  //       removeIt = firstNameMatchIdx !== idx;
-  //     }
-
-  //     if (removeIt) {
-  //       this.removeRename(rename);
-  //     }
-  //   });
-  //   this._validate();
-  // }
-
-  // removeEmptyRenames(columnList = null) {
-  //   // cleanup any empty renames to keep things tidy. Destroy in reverse order to prevent index issues.
-  //   // removes any items without a defined value or that aren't in the selected column list (if provided)
-  //   _.forEachRight(this.rename, (rename) => {
-  //     if (!rename.name || (!_.isNil(columnList) && !_.includes(columnList, rename.column))) {
-  //       this.removeRename(rename);
-  //     }
-  //   });
-  //   this._validate();
-  // }
-
-  // removeRename(rename) {
-  //   if (_.isString(rename)) {
-  //     rename = _.find(this.rename, { column: rename });
-  //   }
-  //   if (rename) {
-  //     this.rename = _.filter(this.rename, (r) => rename !== r);
-  //   }
-  //   this._validate();
-  // }
+  setColumn(rename, column) {
+    const renameIndex = this.getIndex(rename);
+    const transform = _.cloneDeep(this._data);
+    transform.rename[renameIndex].column = column;
+    this._validate(transform);
+  }
 
   removeRenameByIndex(index) {
     if (!this._data.rename[index]) {
@@ -108,10 +86,11 @@ class Rename extends BaseModel {
     this._validate(transform);
   }
 
-  // setRename(rename) {
-  //   this.rename = rename;
-  //   this._validate();
-  // }
+  setRename(rename) {
+    const transform = _.cloneDeep(this._data);
+    transform.rename = rename;
+    this._validate(transform);
+  }
 
   setRenameByColumn(column, name) {
     // add or update rename item without needing to know the indexes or whatever. Assumes all columns are unique.
