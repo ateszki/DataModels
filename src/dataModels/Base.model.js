@@ -2,11 +2,14 @@ const _ = require('lodash');
 
 class BaseModel {
   _data = null;
-  _validator = null;
-  _defaults = null;
   _listeners = {
     dataChanged: (modelInstance, oldData, newData) => {},
   };
+
+  /* Each class extending BaseModel will need to have the following fields:
+   * _defaults = null;
+   * _validator = null;
+  */
 
   constructor(data = {}, listeners = {}) {
     this._initialData = data;
@@ -16,8 +19,9 @@ class BaseModel {
   }
 
   _init() {
+    const { _defaults, _validator } = this.constructor;
     /* validate specific required properties for the model inheriting this to be present */
-    if (!this._validator) {
+    if (!_validator) {
       throw new Error('Yo dev! You forgot to associate the schema to this model');
     }
     if (_.isUndefined(this.checkIsValid)) {
@@ -25,18 +29,19 @@ class BaseModel {
     }
     
     /* load and validate the data */
-    if (this._defaults) {
-      _.defaultsDeep(this._initialData, this._defaults);
+    if (_defaults) {
+      _.defaultsDeep(this._initialData, _defaults);
     }
     this._validate(this._initialData);
   }
 
   _validate(newData) {
+    const { _validator } = this.constructor;
     const oldData = this._snapshot();
     const cloned = _.cloneDeep(newData); // because validate might modify the object
-    const isValid = this._validator(cloned);
+    const isValid = _validator(cloned);
     if (!isValid) {
-      throw new Error(JSON.stringify(this._validator.errors));
+      throw new Error(JSON.stringify(_validator.errors));
     }
     this._data = cloned;
 
